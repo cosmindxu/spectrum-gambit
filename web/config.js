@@ -7,4 +7,4 @@
 // Set it to your Worker URL ONLY when the static site and the API live on
 // different origins (e.g. GitHub Pages static + a separate Worker):
 //   window.SG_API_BASE = 'https://spectral-gambit-api.YOURNAME.workers.dev';
-window.SG_API_BASE = '';
+window.SG_API_BASE = 'https://spectral-gambit-api.cosmindxu.workers.dev';

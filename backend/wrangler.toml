@@ -7,7 +7,7 @@ compatibility_date = "2024-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "spectral-gambit"
-database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+database_id = "45d43325-af38-477c-a886-d5a538e59649"
 
 # Apply the schema:  wrangler d1 execute spectral-gambit --file=schema.sql --remote
 # Deploy:            wrangler deploy
