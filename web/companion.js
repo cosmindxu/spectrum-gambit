@@ -169,6 +169,7 @@ async function playSan(san) {
   const pos = curPos();
   const m = pos.sanToMove(san);
   if (!m) { window.SG.flash(`${san} isn't legal now — the position changed`); clearCards('position changed — ask Claude for fresh advice'); return; }
+  window.SG.markAssisted();                  // this game used AI help (flagged on the ladder)
   window.SG.tapSquare(alg2sq(m.from));
   window.SG.tapSquare(alg2sq(m.to));        // navTo chains via predicted cursor
   window.SG.flash(`playing ${san}`);

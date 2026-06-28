@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS ladder (
   level      INTEGER NOT NULL,                   -- engine strength 1..5
   result     TEXT NOT NULL,                      -- win | loss | draw
   moves      INTEGER,
+  assisted   INTEGER NOT NULL DEFAULT 0,         -- 1 = the AI companion played a move
   created_at INTEGER
 );
 

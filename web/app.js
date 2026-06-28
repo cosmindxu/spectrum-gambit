@@ -16,6 +16,7 @@ let history = [];                    // [{san, side, from, to, ...}]
 let lastStatus = '', lastEngineMove = '', curLevel = 2, reportedOver = '';
 let queue = [], active = null;       // input pulse state machine
 let onPlyCbs = [], onOverCbs = []; // hooks (clock, compete, companion) — multi-subscriber
+let assisted = false;              // did the AI companion play a move this game?
 
 const START_FEN_BOARD = buildStartBoard();
 
@@ -184,7 +185,7 @@ function poll() {
   const cur = M.HEAPU8.subarray(boardBuf, boardBuf + 128);
   if (!sameBoard(cur, prevBoard)) {
     if (isStartPosition(cur)) {                   // new game / reset
-      history = []; renderLog();
+      history = []; renderLog(); assisted = false;
     } else {
       const mv = diffMove(prevBoard, cur);
       if (mv) { history.push(mv); renderLog(); onPlyCbs.forEach(cb => cb(mv, history.slice())); }
@@ -430,6 +431,8 @@ window.SG = {
   // tap-to-move helpers (also used by the test harness)
   cursor:    () => sg.peek(CURSOR_SQ),
   peek:      (addr) => sg.peek(addr),
+  markAssisted: () => { assisted = true; },     // companion played a move
+  wasAssisted:  () => assisted,
   flip:      () => sg.peek(FLIP_FLAG) & 1,
   screen:    () => M.UTF8ToString(sg.text()),
   board:     () => { sg.board(boardBuf); return Array.from(M.HEAPU8.subarray(boardBuf, boardBuf + 128)); },

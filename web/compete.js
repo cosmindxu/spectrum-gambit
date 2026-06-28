@@ -30,10 +30,18 @@ function initLadder() {
 
   // when a game vs the engine ends, offer to log the result
   window.SG.onOver((status) => {
-    const guess = /black wins|0-1/i.test(status) ? 'loss'
-      : /white wins|checkmate|1-0/i.test(status) ? 'win'
-      : 'draw';
-    showReport(guess, status);
+    // determine the TRUE result from the engine, not the ambiguous status text:
+    // gameState 0xE088: 1=white-mated, 2=black-mated, 3=stalemate, 4=fifty-move
+    // humanSide 0xE089: which colour the human plays (white unless bit3 set)
+    const gs = window.SG.peek(0xE088);
+    const humanWhite = (window.SG.peek(0xE089) & 8) === 0;
+    let result, label;
+    if (gs === 1) { result = humanWhite ? 'loss' : 'win'; label = humanWhite ? 'Checkmate — you were mated (a loss)' : 'Checkmate — you win!'; }
+    else if (gs === 2) { result = humanWhite ? 'win' : 'loss'; label = humanWhite ? 'Checkmate — you win!' : 'Checkmate — you were mated (a loss)'; }
+    else if (gs === 3) { result = 'draw'; label = 'Stalemate — a draw'; }
+    else if (gs === 4) { result = 'draw'; label = 'Fifty-move rule — a draw'; }
+    else { result = /black wins|0-1/i.test(status) ? 'loss' : /white wins|1-0/i.test(status) ? 'win' : 'draw'; label = 'Game over: ' + status; }
+    showReport(result, label);
   });
 
   $('report-win').onclick = () => report('win');
@@ -41,30 +49,36 @@ function initLadder() {
   $('report-draw').onclick = () => report('draw');
   refreshLeaderboard();
 }
-function showReport(guess, status) {
+function showReport(result, label) {
   $('reportbox').classList.remove('hidden');
-  $('reportstatus').textContent = 'Game over: ' + status;
+  $('reportstatus').textContent = label;
   for (const r of ['win', 'loss', 'draw'])
-    $('report-' + r).classList.toggle('suggest', r === guess);
+    $('report-' + r).classList.toggle('suggest', r === result);
 }
 async function report(result) {
   const nm = name();
   if (!nm) { window.SG.flash('enter a player name first'); $('playername').focus(); return; }
   const moves = Math.ceil(window.SG.history().length / 2);
+  // the server verifies the result against the authoritative final position
+  const { buildPosition, readState } = await import('./position.js');
+  const fen = buildPosition(readState(window.SG)).fen;
+  const assisted = window.SG.wasAssisted();
   const res = await api('/api/ladder', { method: 'POST',
-    body: JSON.stringify({ name: nm, level: window.SG.level(), result, moves }) });
+    body: JSON.stringify({ name: nm, level: window.SG.level(), result, moves, fen, assisted }) }).catch(() => ({ error: 'offline' }));
+  if (res.error) { window.SG.flash(res.error.replace(/^result not verified: /, '')); return; }   // keep box open on reject
   $('reportbox').classList.add('hidden');
-  window.SG.flash(res.rank ? `logged — you're #${res.rank}` : 'logged');
+  window.SG.flash((res.rank ? `logged — you're #${res.rank}` : 'logged') + (assisted ? ' (with AI 🤖)' : ''));
   refreshLeaderboard();
 }
 async function refreshLeaderboard() {
   const data = await api('/api/leaderboard').catch(() => null);
   if (!data) { $('leaderboard').innerHTML = '<tr><td colspan="4" class="dim">offline</td></tr>'; return; }
   const me = name();
-  $('leaderboard').innerHTML = (data.ladder.length ? data.ladder : []).map((r, i) =>
-    `<tr class="${r.name === me ? 'me' : ''}"><td class="n">${i + 1}</td><td>${esc(r.name)}</td>` +
-    `<td>Lv ${r.best}</td><td>${r.wins}W</td></tr>`).join('')
-    || '<tr><td colspan="4" class="dim">no games yet — be the first</td></tr>';
+  $('leaderboard').innerHTML = (data.ladder.length ? data.ladder : []).map((r, i) => {
+    const best = r.best_solo > 0 ? `Lv ${r.best_solo}` : (r.best > 0 ? `Lv ${r.best} 🤖` : '–');
+    const wins = `${r.wins}W` + (r.assisted_wins ? ` <span class="ai" title="AI-assisted wins">${r.assisted_wins}🤖</span>` : '');
+    return `<tr class="${r.name === me ? 'me' : ''}"><td class="n">${i + 1}</td><td>${esc(r.name)}</td><td>${best}</td><td>${wins}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="dim">no games yet — be the first</td></tr>';
 }
 
 // ---------- correspondence (async H2H) ----------

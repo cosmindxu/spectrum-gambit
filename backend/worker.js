@@ -1,3 +1,5 @@
+import { Chess } from 'chess.js';   // server-side result verification
+
 // Spectral Gambit — Cloudflare Worker API (D1-backed).
 //
 // Routes (all JSON unless noted):
@@ -115,31 +117,51 @@ async function postMove(req, db, id) {
 }
 
 async function postLadder(req, db) {
-  const { name, level, result, moves } = await req.json().catch(() => ({}));
+  const b = await req.json().catch(() => ({}));
+  const { name, level, result, moves, fen } = b;
+  const assisted = b.assisted ? 1 : 0;
   if (!name || !level || !result) return bad('name, level, result required');
-  await db.prepare('INSERT INTO ladder (name,level,result,moves,created_at) VALUES (?,?,?,?,?)')
-    .bind(String(name).slice(0, 24), level | 0, result, moves | 0, now()).run();
+  // server-side verification: the claimed result must match the actual final position
+  const v = verifyResult(result, fen);
+  if (!v.ok) return bad('result not verified: ' + v.reason, 422);
+  await db.prepare('INSERT INTO ladder (name,level,result,moves,assisted,created_at) VALUES (?,?,?,?,?,?)')
+    .bind(String(name).slice(0, 24), level | 0, result, moves | 0, assisted, now()).run();
   const rows = await leaderRows(db);
   const rank = rows.findIndex(r => r.name === String(name).slice(0, 24)) + 1;
-  return json({ ok: true, rank });
+  return json({ ok: true, rank, verified: true });
+}
+
+// The human plays White. A WIN must be a real checkmate with Black (the engine)
+// to move (mated); a LOSS the reverse; a DRAW a genuine drawn position.
+function verifyResult(result, fen) {
+  if (typeof fen !== 'string' || !fen) return { ok: false, reason: 'no final position supplied' };
+  let c;
+  try { c = new Chess(fen); } catch (e) { return { ok: false, reason: 'invalid final position' }; }
+  if (result === 'win')  return (c.isCheckmate() && c.turn() === 'b') ? { ok: true } : { ok: false, reason: 'not a checkmate in your favour' };
+  if (result === 'loss') return (c.isCheckmate() && c.turn() === 'w') ? { ok: true } : { ok: false, reason: 'not a checkmate against you' };
+  if (result === 'draw') return (c.isStalemate() || c.isInsufficientMaterial() || c.isDraw()) ? { ok: true } : { ok: false, reason: 'not a drawn position' };
+  return { ok: false, reason: 'unknown result' };
 }
 
 async function leaderRows(db) {
-  // Rank by highest level beaten, then total wins.
+  // Rank by highest SOLO level beaten (assisted wins are tracked but ranked lower),
+  // then best overall, then total wins.
   const { results } = await db.prepare(`
     SELECT name,
-           MAX(CASE WHEN result='win' THEN level ELSE 0 END) AS best,
-           SUM(CASE WHEN result='win' THEN 1 ELSE 0 END)     AS wins,
-           COUNT(*)                                          AS games
+           MAX(CASE WHEN result='win' THEN level ELSE 0 END)                  AS best,
+           MAX(CASE WHEN result='win' AND assisted=0 THEN level ELSE 0 END)   AS best_solo,
+           SUM(CASE WHEN result='win' THEN 1 ELSE 0 END)                      AS wins,
+           SUM(CASE WHEN result='win' AND assisted=1 THEN 1 ELSE 0 END)       AS assisted_wins,
+           COUNT(*)                                                           AS games
     FROM ladder GROUP BY name
-    ORDER BY best DESC, wins DESC, games ASC LIMIT 100`).all();
+    ORDER BY best_solo DESC, best DESC, wins DESC, games ASC LIMIT 100`).all();
   return results || [];
 }
 
 async function leaderboard(db) {
   const ladder = await leaderRows(db);
   const recent = (await db.prepare(
-    'SELECT name,level,result,moves,created_at FROM ladder ORDER BY created_at DESC LIMIT 12').all()).results || [];
+    'SELECT name,level,result,moves,assisted,created_at FROM ladder ORDER BY created_at DESC LIMIT 12').all()).results || [];
   return json({ ladder, recent });
 }
 
