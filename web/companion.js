@@ -10,7 +10,8 @@ async function ensurePos() { if (!buildPosition) ({ buildPosition, readState } =
 const curPos = () => buildPosition(readState(window.SG));
 // signature of the board the current suggestion cards belong to (staleness guard)
 function boardSig() { const b = window.SG.board(); let h = 0; for (let i = 0; i < 128; i++) h = (Math.imul(h, 31) + b[i]) | 0; return h; }
-let sugSig = null;
+let sugSig = null;        // board the current cards belong to
+let pushedSig = null;     // board last pushed to the server
 
 const API = (typeof window.SG_API_BASE === 'string' && window.SG_API_BASE)
   ? window.SG_API_BASE
@@ -70,6 +71,7 @@ async function openSession() {
 async function pushState() {
   if (!session) return;
   await ensurePos();
+  pushedSig = boardSig();                 // mark before the await so poll won't re-trigger
   const pos = curPos();
   const ev = (window.SG.screen().match(/Eval (-?\d+)/) || [])[1];
   const r = await api('/api/companion/state', { method: 'POST', body: JSON.stringify({
@@ -81,6 +83,9 @@ async function pushState() {
 
 async function poll() {
   if (!session) return;
+  // catch ANY board change the move-log hooks miss — New game, Take back, slot
+  // load, import — and re-sync the position to the server.
+  if (pushedSig !== null && boardSig() !== pushedSig) await pushState();
   const r = await api(`/api/companion/poll?sessionId=${session.sessionId}`).catch(() => null);
   if (!r) { setStatus('offline', 'backend unreachable'); return; }
   if (r.error) { localStorage.removeItem('sg_companion_session'); session = await openSession(); return; }
