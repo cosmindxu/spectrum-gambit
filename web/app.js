@@ -16,7 +16,7 @@ let history = [];                    // [{san, side, from, to, ...}]
 let lastStatus = '', lastEngineMove = '', curLevel = 2, reportedOver = '';
 let queue = [], active = null;       // input pulse state machine
 let onPlyCbs = [], onOverCbs = []; // hooks (clock, compete, companion) — multi-subscriber
-let assisted = false;              // did the AI companion play a move this game?
+let aiMoveCount = 0, playerMoveCount = 0;   // AI-played vs total of YOUR (White) moves this game
 
 const START_FEN_BOARD = buildStartBoard();
 
@@ -185,10 +185,14 @@ function poll() {
   const cur = M.HEAPU8.subarray(boardBuf, boardBuf + 128);
   if (!sameBoard(cur, prevBoard)) {
     if (isStartPosition(cur)) {                   // new game / reset
-      history = []; renderLog(); assisted = false;
+      history = []; renderLog(); aiMoveCount = 0; playerMoveCount = 0;
     } else {
       const mv = diffMove(prevBoard, cur);
-      if (mv) { history.push(mv); renderLog(); onPlyCbs.forEach(cb => cb(mv, history.slice())); }
+      if (mv) {
+        history.push(mv); renderLog();
+        if (mv.side === 0) playerMoveCount++;     // a White (your) move
+        onPlyCbs.forEach(cb => cb(mv, history.slice()));
+      }
     }
     prevBoard.set(cur);
     predCursor = null;                            // re-sync tap-to-move after any move
@@ -431,8 +435,9 @@ window.SG = {
   // tap-to-move helpers (also used by the test harness)
   cursor:    () => sg.peek(CURSOR_SQ),
   peek:      (addr) => sg.peek(addr),
-  markAssisted: () => { assisted = true; },     // companion played a move
-  wasAssisted:  () => assisted,
+  markAssisted: () => { aiMoveCount++; },        // companion played one of your moves
+  // AI-assisted if the companion played >= 50% of your moves this game
+  wasAssisted:  () => { const d = Math.max(playerMoveCount, aiMoveCount); return d > 0 && aiMoveCount / d >= 0.5; },
   flip:      () => sg.peek(FLIP_FLAG) & 1,
   screen:    () => M.UTF8ToString(sg.text()),
   board:     () => { sg.board(boardBuf); return Array.from(M.HEAPU8.subarray(boardBuf, boardBuf + 128)); },

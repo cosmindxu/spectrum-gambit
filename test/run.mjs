@@ -274,14 +274,10 @@ T('H2', 'leaderboard renders rows from the API', async () => {
   const rows = await ev(() => document.querySelectorAll('#leaderboard tr').length);
   assert(rows >= 1, 'leaderboard has rows: ' + rows);
 });
-T('H3', 'reporting a result posts to the API and updates the board', async () => {
-  await resetClean(); await page.click('#playername'); await page.type('#playername', 'qa_' + Date.now() % 100000);
-  await page.evaluate(() => document.getElementById('playername').blur());
-  await ev(() => document.getElementById('reportbox').classList.remove('hidden'));
-  await page.click('#report-win'); await sleep(800);
-  const me = await ev(() => localStorage.getItem('sg_name'));
-  const lb = await ev(() => document.getElementById('leaderboard').textContent);
-  assert(lb.includes(me), 'leaderboard now includes ' + me);
+T('H3', 'game-over report shows a single Save button (no win/loss/draw choices)', async () => {
+  await resetClean();
+  eq(await ev(() => !!document.getElementById('report-save')), true, 'single Save button present');
+  eq(await ev(() => !!document.getElementById('report-win')), false, 'old three-choice buttons gone');
 });
 
 // ===== I. compete: correspondence =====

@@ -41,19 +41,19 @@ function initLadder() {
     else if (gs === 3) { result = 'draw'; label = 'Stalemate — a draw'; }
     else if (gs === 4) { result = 'draw'; label = 'Fifty-move rule — a draw'; }
     else { result = /black wins|0-1/i.test(status) ? 'loss' : /white wins|1-0/i.test(status) ? 'win' : 'draw'; label = 'Game over: ' + status; }
-    showReport(result, label);
+    pendingResult = result;
+    showReport(label);
   });
 
-  $('report-win').onclick = () => report('win');
-  $('report-loss').onclick = () => report('loss');
-  $('report-draw').onclick = () => report('draw');
+  // one button: the result is auto-detected and server-verified, so there's
+  // nothing to choose — just save it.
+  $('report-save').onclick = () => { if (pendingResult) report(pendingResult); };
   refreshLeaderboard();
 }
-function showReport(result, label) {
+let pendingResult = null;
+function showReport(label) {
   $('reportbox').classList.remove('hidden');
   $('reportstatus').textContent = label;
-  for (const r of ['win', 'loss', 'draw'])
-    $('report-' + r).classList.toggle('suggest', r === result);
 }
 async function report(result) {
   const nm = name();
