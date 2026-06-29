@@ -228,7 +228,9 @@ function updatePanel(text) {
   const emv  = text.match(/Move ([a-h][1-8][a-h][1-8])/);
   if (lvl >= 1 && lvl <= 5) curLevel = lvl;
   set('lvl', (lvl >= 1 && lvl <= 5) ? lvl : '–');
-  set('eval', ev ? signed(ev[1]) : '–');
+  // the engine prints its eval from ITS OWN perspective (+ = good for the engine);
+  // flip the sign so the panel reads from your side (+ = good for you).
+  set('eval', ev ? signed(-parseInt(ev[1], 10)) : '–');
   set('matl', matl ? signed(matl[1]) : '–');
   const st = lastStatus || '…';
   const badge = document.getElementById('status');

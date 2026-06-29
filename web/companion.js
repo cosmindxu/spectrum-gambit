@@ -108,10 +108,11 @@ async function pushState() {
   await ensurePos();
   pushedSig = boardSig();                 // mark before the await so poll won't re-trigger
   const pos = curPos();
+  // the engine's eval is from ITS perspective; flip it so Claude reads + = good for the player
   const ev = (window.SG.screen().match(/Eval (-?\d+)/) || [])[1];
   const r = await api('/api/companion/state', { method: 'POST', body: JSON.stringify({
     sessionId: session.sessionId, fen: pos.fen, pgn: authPgn(pos.fen), side: pos.side,
-    eval: ev ? parseInt(ev, 10) : 0, level: window.SG.level(), legalMoves: pos.legal,
+    eval: ev ? -parseInt(ev, 10) : 0, level: window.SG.level(), legalMoves: pos.legal,
   }) }).catch(() => null);
   if (r && 'connected' in r) reflectConnected(r.connected);
 }
