@@ -140,6 +140,11 @@ h3{margin:16px 0 8px;font-size:13px;color:var(--dim);text-transform:uppercase;le
 .lb th{text-align:left;color:var(--dim);font-weight:500;font-size:12px;padding:4px 6px;border-bottom:1px solid var(--line)}
 .lb td{padding:4px 6px}.lb td.n,.lb .n{color:var(--dim);width:28px}
 .lb tr.me{color:var(--accent)}
+/* Recent games: a viewport-sized scroll box so the feed never stretches the page;
+   max-height scales with the screen (taller screen = more rows visible). */
+.recentwrap{max-height:clamp(140px,34vh,360px);overflow:auto;background:#0e0e18;
+  border:1px solid var(--line);border-radius:9px;padding:2px 10px;margin-top:4px}
+.recentwrap thead th{position:sticky;top:0;background:#0e0e18;z-index:1}
 .corrstate{background:#0e0e18;border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px}
 .corrstate b{color:var(--accent);text-transform:capitalize}
 .card .actions{display:flex;gap:8px;margin-top:6px}

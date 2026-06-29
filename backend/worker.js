@@ -175,7 +175,7 @@ async function leaderRows(db) {
 async function leaderboard(db) {
   const ladder = await leaderRows(db);
   const recent = (await db.prepare(
-    'SELECT name,level,result,moves,assisted,created_at FROM ladder ORDER BY created_at DESC LIMIT 12').all()).results || [];
+    'SELECT name,level,result,moves,assisted,created_at FROM ladder ORDER BY created_at DESC LIMIT 25').all()).results || [];
   return json({ ladder, recent });
 }
 
