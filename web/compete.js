@@ -82,6 +82,18 @@ async function refreshLeaderboard() {
     const wins = `${r.wins}W` + (r.assisted_wins ? ` <span class="ai" title="AI-assisted wins">${r.assisted_wins}🤖</span>` : '');
     return `<tr class="${r.name === me ? 'me' : ''}"><td class="n">${i + 1}</td><td>${esc(r.name)}</td><td>${best}</td><td>${wins}</td></tr>`;
   }).join('') || '<tr><td colspan="4" class="dim">no games yet — be the first</td></tr>';
+
+  // a per-game results feed so losses and draws are visible too (not just wins)
+  const rg = $('recentgames');
+  if (rg) {
+    const recent = data.recent || [];
+    rg.innerHTML = recent.length ? recent.map(g => {
+      const label = g.result === 'win' ? 'won' : g.result === 'loss' ? 'lost' : 'drew';
+      const color = g.result === 'win' ? '#2ecc40' : g.result === 'loss' ? '#ff5b52' : '#bbb';
+      return `<tr class="${g.name === me ? 'me' : ''}"><td>${esc(g.name)}</td><td>Lv ${g.level}</td>` +
+             `<td style="color:${color}">${label}${g.assisted ? ' 🦾' : ''}</td></tr>`;
+    }).join('') : '<tr><td colspan="3" class="dim">no games yet</td></tr>';
+  }
 }
 
 // ---------- correspondence (async H2H) ----------
