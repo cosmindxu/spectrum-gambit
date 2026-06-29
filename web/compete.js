@@ -77,11 +77,13 @@ async function refreshLeaderboard() {
   const data = await api('/api/leaderboard').catch(() => null);
   if (!data) { $('leaderboard').innerHTML = '<tr><td colspan="4" class="dim">offline</td></tr>'; return; }
   const me = name();
-  $('leaderboard').innerHTML = (data.ladder.length ? data.ladder : []).map((r, i) => {
+  // the standings rank by levels CLEARED, so list only players with a win — the
+  // win-less entries stay visible in the Recent games feed below, just not here.
+  $('leaderboard').innerHTML = data.ladder.filter(r => r.wins > 0).map((r, i) => {
     const best = r.best_solo > 0 ? `Lv ${r.best_solo}` : (r.best > 0 ? `Lv ${r.best} 🤖` : '–');
     const wins = `${r.wins}W` + (r.assisted_wins ? ` <span class="ai" title="AI-assisted wins">${r.assisted_wins}🤖</span>` : '');
     return `<tr class="${r.name === me ? 'me' : ''}"><td class="n">${i + 1}</td><td>${esc(r.name)}</td><td>${best}</td><td>${wins}</td></tr>`;
-  }).join('') || '<tr><td colspan="4" class="dim">no games yet — be the first</td></tr>';
+  }).join('') || '<tr><td colspan="4" class="dim">no one has cleared a level yet — be the first</td></tr>';
 
   // a per-game results feed so losses and draws are visible too (not just wins)
   const rg = $('recentgames');
