@@ -13,7 +13,7 @@ let M, sg = {}, fbPtr, FBW, FBH, imageData, ctx, boardBuf;
 let emuFrame = 0, ready = false;
 let prevBoard = new Uint8Array(128);
 let history = [];                    // [{san, side, from, to, ...}]
-let lastStatus = '', lastEngineMove = '', curLevel = 2, reportedOver = '';
+let lastStatus = '', lastEngineMove = '', curLevel = 2, minLevel = null, reportedOver = '';
 let queue = [], active = null;       // input pulse state machine
 let onPlyCbs = [], onOverCbs = []; // hooks (clock, compete, companion) — multi-subscriber
 let aiMoveCount = 0, playerMoveCount = 0;   // AI-played vs total of YOUR (White) moves this game
@@ -192,7 +192,7 @@ function poll() {
   const thinking = /thinking/i.test(lastStatus);
   if (!thinking && !sameBoard(cur, prevBoard)) {
     if (isStartPosition(cur)) {                   // new game / reset
-      history = []; renderLog(); aiMoveCount = 0; playerMoveCount = 0; posKeys = [];
+      history = []; renderLog(); aiMoveCount = 0; playerMoveCount = 0; posKeys = []; minLevel = null;
     } else {
       const mv = diffMove(prevBoard, cur);
       if (mv) {
@@ -201,6 +201,9 @@ function poll() {
         onPlyCbs.forEach(cb => cb(mv, history.slice()));
       }
       posKeys.push(posKey(cur));                  // record this settled position (repetition proof)
+      // honest scoring: count the LOWEST level the engine was set to during play —
+      // a mid-game difficulty drop gave the player an easier opponent.
+      if (curLevel >= 1 && curLevel <= 5) minLevel = (minLevel === null) ? curLevel : Math.min(minLevel, curLevel);
     }
     prevBoard.set(cur);
     predCursor = null;                            // re-sync tap-to-move after any move
@@ -461,7 +464,7 @@ window.SG = {
   },
   history:   () => history.slice(),
   setHistory:(h) => { history = h || []; renderLog(); },
-  level:     () => curLevel,
+  level:     () => (minLevel !== null ? minLevel : curLevel),   // lowest level set during the game
   status:    () => lastStatus,
   tap,
   flash,
