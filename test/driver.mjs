@@ -59,6 +59,8 @@ async function relaunch() {
   try { if (browser) await browser.close(); } catch {}
   await makeBrowser();
   await openSite(45000);
+  // the resumed game can lose the difficulty setting — re-assert the chosen level
+  try { await page.click(`[data-level="${LEVEL}"]`); await sleep(300); } catch {}
 }
 
 // full game setup (one attempt). Wrapped in a retry below so a random Chromium
