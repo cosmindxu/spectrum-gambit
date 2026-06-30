@@ -18,18 +18,19 @@ Two subagents play the live HC‑91 ZX‑CHESS game end‑to‑end, with no huma
 
 **Opus/max record: 2 wins (L1, L3), 3 losses (L2, L4, L5); best level reached with a win = 3.**
 
-## Sonnet / max — level 2 (head‑to‑head with Opus)
+## Sonnet / max — levels 2 & 3 (head‑to‑head with Opus)
 
-| Level | Player | Result | Decisive moment |
-|------:|--------|--------|-----------------|
-| 2 | **Sonnet / max** | **WIN** ✅ | Italian Game: **13.Nd6+** (fork: check + hits the c4 queen) Kf8 **14.Re8#** back‑rank mate |
+| Level | Result | Decisive moment |
+|------:|--------|-----------------|
+| 2 | **WIN** ✅ | Italian Game: **13.Nd6+** (fork: check + hits the c4 queen) Kf8 **14.Re8#** back‑rank mate |
+| 3 | **Loss** ❌ | Italian Game: **12.Qa4+??** hung the queen to 12…Nxa4, mated **13…Qe1#** |
 
-**Sonnet/max won the exact level Opus/max lost** — same engine strength, opposite outcome.
+**A clean mirror of Opus/max:** Sonnet **beats L2, loses L3**; Opus **beats L3, loses L2** — same two engine levels, opposite outcomes. (The first Sonnet L3 attempt mis‑recorded as L2 after a move‑0 browser crash; re‑run and the stray row removed — see Notes.)
 
 ## Observations
 
 - **It's about conversion, not raw strength.** The engine ladder is monotonic, but the *results* aren't: Opus beat L1 and L3 yet lost L2. Every loss traces to a single tactical miscalculation (12.Bf4??, 26.Bb3??), not to being strategically outplayed. The player reaches sound or better positions, then throws them away in one move.
-- **Sonnet ≥ Opus here, on this sample.** At L2, Sonnet found a clean 14‑move mating attack while Opus hung a piece on move 12. One game each, so it's anecdotal — but striking.
+- **Neither model dominates — they trade levels.** At L2, Sonnet mated cleanly while Opus hung a piece; at L3, Opus mated cleanly while Sonnet hung its queen. Same blunder‑decides‑it pattern for both; a one‑game sample per cell, so treat it as anecdote, not ranking.
 - **The on‑screen "Eval" is from the engine's perspective.** Large "+" numbers mean the *engine* is better, not the player; the app/companion now negate it for display.
 - **Infrastructure held up.** The skill drove every game; headless Chromium crashed mid‑game and auto‑recovered from the on‑disk autosave; games finished without manual intervention.
 
@@ -40,6 +41,6 @@ A result is **only recorded at a terminal position** (checkmate/stalemate; `game
 ## Leaderboard (server‑verified, AI‑assisted 🤖)
 
 - **Opus max** — 5 games, 2 wins, best level **3**.
-- **Sonnet max** — 1 game, 1 win (level **2**).
+- **Sonnet max** — 2 games, 1 win (L2) + 1 loss (L3); best level **2**.
 
 *All games AI‑assisted (the companion played 100% of White's moves) and flagged accordingly. Move references above are from each game's PGN.*
