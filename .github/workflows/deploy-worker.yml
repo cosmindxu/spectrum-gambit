@@ -1,0 +1,24 @@
+name: Deploy Worker
+
+# Ship the Cloudflare Worker (backend/) whenever its sources change on main.
+# The front-end is deployed separately by pages.yml.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/worker.js'
+      - 'backend/wrangler.toml'
+      - 'backend/schema.sql'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: backend
