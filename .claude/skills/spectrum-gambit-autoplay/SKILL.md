@@ -20,10 +20,21 @@ They coordinate only through `/tmp/sg_game/code.txt` + the live MCP server. The 
 | clock | A | `off`, `3+2`, `5+0`, `10+5`, `15+10` | off |
 | model | B | opus, sonnet, haiku, fable | opus |
 | effort | B | low, medium, high, max | max |
+| external tools | B | forbidden / allowed | **forbidden** |
 
 Derive the leaderboard **name** from model+effort, e.g. `Opus max`, `Sonnet high` (this is what gets logged, satisfying "note the model + effort used"). If the user gave no values, use the defaults and say so. Only ask (AskUserQuestion) if they signalled they want to choose but were vague.
 
 ⚠️ A tight **clock** + a slow/high-effort **model** can flag the player on time (e.g. Opus/max deliberates ~1 min/move, so `5+0` would lose on time). Warn the user if their combo is risky.
+
+### External engines / tools — forbidden by default 🚫
+The ladder measures **the model's own chess**, so by default agent B may use **only its own reasoning**. The
+`B_PROMPT` in `game-workflow.template.js` carries a **NO EXTERNAL ENGINES** block that forbids Stockfish/Leela,
+python-chess evaluation or mate-search, tablebases, opening books, and any other move-evaluating tool (`curl` is
+allowed **only** for the MCP endpoint). **Keep that block in place.** Remove it **only if the user EXPLICITLY asks**
+to allow an external engine/tool — and if so, flag it in the leaderboard **name** (e.g. `Opus max +SF`) so the entry
+isn't mistaken for the model's own play. Why it matters: a resourceful model (Opus was observed installing
+**Stockfish 17.1** and verifying every move with it) otherwise logs engine-strength results that don't reflect the
+model and aren't comparable with weaker models that played their own moves.
 
 ## Procedure
 
