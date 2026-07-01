@@ -21,6 +21,37 @@ def now(): return int(time.time() * 1000)
 def id6(): return ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
 def tok(): return uuid.uuid4().hex
 
+def verify_result(result, fen, position_keys):
+    """Lightweight mirror of worker.js verifyResult(), enough to exercise the
+    leaderboard fixes locally. This dev shim has no chess engine, so checkmate is
+    accepted unverified (wins/losses) and stalemate / insufficient-material draws
+    can't be recognised here — the Cloudflare Worker is authoritative for those in
+    production. What IS checked: the FEN-derivable fifty-move rule and the
+    client-supplied threefold-repetition proof, mirroring the relaxed worker check
+    (final key present >=2x + its board+side-to-move matching the final FEN)."""
+    if not isinstance(fen, str) or not fen:
+        return (False, "no final position supplied")
+    if result in ("win", "loss"):
+        return (True, None)                       # needs chess.js; the Worker verifies
+    if result == "draw":
+        fields = fen.split(" ")
+        # (b) fifty-move rule — halfmove clock in the FEN
+        try:
+            if int(fields[4]) >= 100:
+                return (True, None)
+        except (IndexError, ValueError):
+            pass
+        # (c) threefold repetition — the ~20Hz settle loop can record the final
+        #     position as few as twice; accept >=2 and corroborate against the FEN.
+        if isinstance(position_keys, list) and len(position_keys) >= 4:
+            last = position_keys[-1] if position_keys else None
+            if last and " ".join(last.split(" ")[:2]) == " ".join(fields[:2]) \
+               and position_keys.count(last) >= 2:
+                return (True, None)
+        return (False, "not a verifiable draw (need the position history for a repetition)")
+    return (False, "unknown result")
+
+
 def leader_rows(c):
     return [dict(r) for r in c.execute("""
         SELECT name,
@@ -116,6 +147,8 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/ladder":
                 name, level, result = b.get("name"), b.get("level"), b.get("result")
                 if not (name and level and result): return self._send({"error": "missing fields"}, 400)
+                ok, reason = verify_result(result, b.get("fen"), b.get("positionKeys"))
+                if not ok: return self._send({"error": "result not verified: " + reason}, 422)
                 c.execute("INSERT INTO ladder (name,level,result,moves,created_at) VALUES (?,?,?,?,?)",
                           (str(name)[:24], int(level), result, int(b.get("moves") or 0), now()))
                 rows = leader_rows(c)

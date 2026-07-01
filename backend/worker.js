@@ -146,11 +146,21 @@ function verifyResult(result, fen, positionKeys) {
     if (c.isStalemate() || c.isInsufficientMaterial()) return { ok: true };
     // (b) fifty-move rule — the halfmove clock lives in the FEN
     if (parseInt(fen.split(' ')[4] || '0', 10) >= 100) return { ok: true };
-    // (c) threefold repetition — needs the position history (supplied only for draws):
-    //     the final position-key must occur >=3 times in the authoritative key list.
-    if (Array.isArray(positionKeys) && positionKeys.length >= 6) {
+    // (c) threefold repetition — needs the position history (supplied only for draws).
+    //     The front-end settle loop samples the board at ~20Hz and records only the NET
+    //     change per poll, so a position created by the player's move and then immediately
+    //     replaced by the engine's forced reply during a fast check-shuffle is never
+    //     recorded — a genuine engine-declared threefold therefore lands in positionKeys
+    //     as few as TWICE. positionKeys is entirely client-supplied (no more forgeable at
+    //     >=2 than at >=3) and a draw never advances the win-ranked ladder, so we accept
+    //     >=2 and corroborate that the final key's board + side-to-move matches the
+    //     independently-parsed final FEN (placement+stm only — castling rights can be
+    //     normalised away by position.js's FEN retry).
+    if (Array.isArray(positionKeys) && positionKeys.length >= 4) {
       const last = positionKeys[positionKeys.length - 1];
-      if (last && positionKeys.filter(k => k === last).length >= 3) return { ok: true };
+      const boardMatches = last &&
+        last.split(' ').slice(0, 2).join(' ') === fen.split(' ').slice(0, 2).join(' ');
+      if (boardMatches && positionKeys.filter(k => k === last).length >= 2) return { ok: true };
     }
     return { ok: false, reason: 'not a verifiable draw (need the position history for a repetition)' };
   }
