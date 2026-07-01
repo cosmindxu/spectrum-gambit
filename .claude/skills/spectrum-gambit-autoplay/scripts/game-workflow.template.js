@@ -6,6 +6,13 @@
 //   {{MODEL}}  opus|sonnet|haiku|fable         (agent B)
 //   {{EFFORT}} low|medium|high|max             (agent B)
 //   {{NAME}}   leaderboard label, e.g. "Opus max"
+//
+// By DEFAULT agent B may use ONLY its own reasoning — the B_PROMPT forbids external
+// chess engines / solvers / tablebases / analysis tools. Remove the "NO EXTERNAL
+// ENGINES" block below ONLY if the user EXPLICITLY asks to allow them (see SKILL.md
+// -> "External engines / tools"). Without this the ladder is not a like-for-like
+// comparison: a resourceful model (e.g. Opus) will install Stockfish and the result
+// reflects the engine, not the model.
 export const meta = {
   name: 'spectrum-gambit-autoplay',
   description: 'Two subagents play a Spectrum Gambit game: the user (Chromium driver) + an LLM (via MCP)',
@@ -30,7 +37,17 @@ const A_PROMPT = [
 const B_PROMPT = [
   'You are subagent B: the chess brain. You play WHITE against a level-{{LEVEL}} engine (Black) in a live game on',
   'Spectrum Gambit, driving it through its remote MCP server with curl. Play strong, principled chess and TRY TO WIN.',
-  'Reason carefully about each position. The MCP endpoint is:',
+  'Reason carefully about each position using ONLY YOUR OWN CHESS KNOWLEDGE.',
+  '',
+  // ---- default-on restriction. Keep these lines UNLESS the user EXPLICITLY asked to
+  //      allow an external engine/tool (see SKILL.md), in which case delete this block.
+  '*** HARD RULE — NO EXTERNAL ENGINES OR SOLVERS ***',
+  'Do NOT install, download, compile, or call ANY external chess engine, solver, tablebase, opening book, or',
+  'move-evaluating tool (no Stockfish, Leela, python-chess evaluation/mate-search, online analysis, etc.). Use curl',
+  'ONLY to talk to the MCP endpoint below. Every move must come from YOUR OWN reasoning — this measures the model\'s',
+  'play, not an engine\'s.',
+  '',
+  'The MCP endpoint is:',
   '    MCP=https://spectrum-gambit-api.cosmindxu.workers.dev/mcp',
   '',
   'IMPORTANT — keep every Bash call SHORT (one or a few curls, no long sleep/poll loops): the shell has a 2-minute',
@@ -59,12 +76,14 @@ const B_PROMPT = [
   '  2. If legalMoves is empty / game over -> STOP.',
   '  3. If sideToMove is "black": the engine is thinking. Sleep ~5s and get_position again.',
   '  4. If sideToMove is "white" AND the fen differs from the fen you last moved from: it is your turn on a NEW',
-  '     position. Choose the BEST legal move for White, then play_move with a SAN copied exactly from legalMoves.',
+  '     position. Choose the BEST legal move for White FROM YOUR OWN REASONING (no external engines/tools), then',
+  '     play_move with a SAN copied exactly from legalMoves.',
   '     Record this fen as "last moved from".',
   '  5. After play_move, the browser auto-plays it and the engine replies. Poll get_position every ~5s until the fen',
   '     advances or the game is over. Then loop.',
   '',
-  'RULES: only ever play a SAN present verbatim in legalMoves. Never move twice from the same fen. The position the',
+  'RULES: only ever play a SAN present verbatim in legalMoves. Never move twice from the same fen. NO external',
+  'engines/solvers/tablebases/analysis tools — own reasoning only (hard rule above). The position the',
   'page reports is always a SETTLED one (the page no longer leaks mid-search positions). If 60 min pass or ~120 plies',
   'with no end, stop. When the game ends, report the outcome (won/lost/drew + how), the final FEN, and total moves.',
   'The browser side saves the leaderboard entry; you do not.',
