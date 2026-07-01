@@ -131,7 +131,22 @@ async function poll() {
     renderCards(r.suggestions);
     logLine(r.suggestions);
   }
-  for (const c of r.commands || []) if (!handledCmd.has(c.id)) { handledCmd.add(c.id); handleCommand(c); }
+  // Apply queued play_move commands. Never touch the board mid-search (sg.board()
+  // is the engine's speculative scratch position while it is thinking) or mid-input
+  // (a half-entered previous move), and apply at most ONE move per poll so the
+  // engine's reply settles before the next queued move is entered. A command that
+  // can't be applied yet stays PENDING and is retried on the next poll, instead of
+  // being acked+dropped against a shifting board.
+  for (const c of r.commands || []) {
+    if (handledCmd.has(c.id)) continue;
+    if (!autoPlay) { handledCmd.add(c.id); handleCommand(c); continue; }
+    if (/thinking/i.test(window.SG.status()) || window.SG.queueLen() > 0) break;   // unsettled — retry next poll
+    const outcome = await playSan(c.san);
+    if (outcome === 'thinking') break;            // became unsettled — leave pending, retry next poll
+    handledCmd.add(c.id);
+    ack(c.id, outcome === 'played' ? 'done' : 'dismissed');
+    break;                                        // one move per poll; let it settle before the next
+  }
   // robust staleness guard: if the board changed since the cards were shown
   // (a manual move, an engine reply, anything), retire them — even if onPly missed it
   if (sugSig !== null && boardSig() !== sugSig) clearCards('position changed — ask Claude for fresh advice');
@@ -171,18 +186,24 @@ function logLine(sug) {
 // ---- playing moves ----
 async function playSan(san) {
   await ensurePos();
+  // Never apply a move to a speculative mid-search board: while the engine is
+  // thinking, sg.board() is its internal scratch position, so `san` maps to the
+  // wrong from/to squares (or to none). Report the race so the caller can retry
+  // once the position settles, instead of entering a garbage move. Returns one of
+  // 'thinking' | 'illegal' | 'played'.
+  if (/thinking/i.test(window.SG.status())) return 'thinking';
   const pos = curPos();
   const m = pos.sanToMove(san);
-  if (!m) { window.SG.flash(`${san} isn't legal now — the position changed`); clearCards('position changed — ask Claude for fresh advice'); return; }
+  if (!m) { window.SG.flash(`${san} isn't legal now — the position changed`); clearCards('position changed — ask Claude for fresh advice'); return 'illegal'; }
   window.SG.markAssisted();                  // this game used AI help (flagged on the ladder)
   window.SG.tapSquare(alg2sq(m.from));
   window.SG.tapSquare(alg2sq(m.to));        // navTo chains via predicted cursor
   window.SG.flash(`playing ${san}`);
+  return 'played';
 }
 
 function handleCommand(c) {
-  if (c.type !== 'play') return;
-  if (autoPlay) { playSan(c.san); ack(c.id, 'done'); return; }
+  if (c.type !== 'play') return;               // auto-play is applied by the settle-gated poll loop
   const box = $('companion-cmd');
   box.innerHTML = `<span>Claude wants to play <b>${esc(c.san)}</b></span>`;
   const yes = btn('Play', () => { playSan(c.san); ack(c.id, 'done'); box.innerHTML = ''; });
